@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="A quiet painting studio for iPad and the web.">
+  <title>Paper &amp; Pigment</title>
+  <link rel="stylesheet" href="studio.css">
+  <script defer src="painting.js"></script>
+  <script defer src="brush-import.js"></script>
+  <script defer src="composition.js"></script>
+  <script defer src="line-art.js"></script>
+  <script defer src="glass.js"></script>
+  <script defer src="artwork.js"></script>
+  <script defer src="studio.js"></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-select" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m7.5 12 3 3 6-6"/></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7"/></symbol>
+    <symbol id="icon-new" viewBox="0 0 24 24"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10zM13 3v7h7M12 13v5m-2.5-2.5h5"/></symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/></symbol>
+    <symbol id="icon-collapse" viewBox="0 0 24 24"><path d="M4 9h5V4m11 5h-5V4M4 15h5v5m11-5h-5v5"/></symbol>
+    <symbol id="icon-tools" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14M9 4v4m6 2v4m-5 2v4"/></symbol>
+    <symbol id="icon-undo" viewBox="0 0 24 24"><path d="m8 4-5 5 5 5M3 9h11a5 5 0 0 1 0 10h-3"/></symbol>
+    <symbol id="icon-redo" viewBox="0 0 24 24"><path d="m16 4 5 5-5 5m5-5H10a5 5 0 0 0 0 10h3"/></symbol>
+    <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1.6 7m-2-12v5h5"/></symbol>
+    <symbol id="icon-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M6 12h12m-6-6v12"/></symbol>
+    <symbol id="icon-fit" viewBox="0 0 24 24"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
+    <symbol id="icon-pan" viewBox="0 0 24 24"><path d="M6 13V8a1.5 1.5 0 0 1 3 0v3-6a1.5 1.5 0 0 1 3 0v6-7a1.5 1.5 0 0 1 3 0v7-5a1.5 1.5 0 0 1 3 0v9a5 5 0 0 1-5 5h-2a5 5 0 0 1-4-2l-3-4a1.5 1.5 0 0 1 2-2z"/></symbol>
+  </svg>
+  <main>
+    <section id="gallery" aria-labelledby="gallery-title">
+      <div class="gallery-head">
+        <div><div class="signature">Paper <i>&amp;</i> Pigment</div><h1 id="gallery-title">Gallery</h1></div>
+        <button id="blank-canvas" class="new-canvas"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-new"/></svg>Blank canvas</button>
+      </div>
+      <div class="gallery-index">
+        <nav id="filters" aria-label="Filter artwork">
+          <button data-filter="all" aria-pressed="true">All artwork</button>
+          <button data-filter="illustration" aria-pressed="false">Illustrations</button>
+          <button data-filter="glass" aria-pressed="false">Stained glass</button>
+          <button data-filter="started" aria-pressed="false">In progress</button>
+        </nav>
+        <div id="selection-actions" hidden>
+          <span id="selection-count" role="status">0 selected</span>
+          <button class="gallery-action" id="duplicate" disabled><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-copy"/></svg>Duplicate</button>
+          <button class="gallery-action danger" id="delete" disabled><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-trash"/></svg>Delete</button>
+        </div>
+        <span id="gallery-count" role="status"></span>
+        <button class="gallery-action" id="select-art" aria-pressed="false"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-select"/></svg><span>Select</span></button>
+      </div>
+      <p id="gallery-message" role="status"></p>
+      <div id="paintings"></div>
+      <p id="empty-gallery" hidden>Your paintings appear here after your first mark.</p>
+      <dialog id="delete-dialog" aria-labelledby="delete-question" aria-describedby="delete-note">
+        <h2 id="delete-question"></h2>
+        <p id="delete-note">This removes the selected artwork and its saved brushwork from this gallery.</p>
+        <form method="dialog"><button class="gallery-action" autofocus value="cancel">Cancel</button><button class="gallery-action danger" value="delete">Delete</button></form>
+      </dialog>
+    </section>
+    <section class="workspace" id="studio" hidden aria-labelledby="title">
+      <div class="studio-bar">
+        <button id="focus-back" class="gallery-back"><svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7"/></svg>Gallery</button>
+        <h2 id="title"></h2>
+        <div class="studio-actions">
+          <button class="icon-button" id="undo" disabled aria-label="Undo" title="Undo"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-undo"/></svg></button>
+          <button class="icon-button" id="redo" disabled aria-label="Redo" title="Redo"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-redo"/></svg></button>
+          <button class="icon-button" id="focus-enter" aria-label="Full screen" title="Full screen"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-expand"/></svg></button>
+          <button class="icon-button" id="focus-tools" aria-controls="focus-menu" aria-expanded="false" aria-label="Tools" title="Tools"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-tools"/></svg></button>
+        </div>
+      </div>
+      <div class="stage">
+        <aside class="focus-rail" aria-label="Brush and color controls">
+          <div id="brush-sliders" class="brush-sliders">
+            <label class="range">Size <input type="range" id="size" min="2" max="62" value="24"></label>
+            <label class="range">Opacity <input type="range" id="opacity" min="10" max="100" value="90"></label>
+          </div>
+          <div class="color-dock" id="canvas-colors" aria-label="Canvas palette">
+            <div id="swatches" class="swatches" aria-label="Paint colors"></div>
+            <label class="color-picker" id="custom-wrap">
+              <input id="custom" type="color" value="#374c4c" aria-label="Choose custom color">
+              <span>Custom</span>
+            </label>
+          </div>
+        </aside>
+        <div class="easel">
+          <canvas id="page" width="1440" height="1080" tabindex="0" aria-label="Painting canvas. Use arrow keys to select a region, Enter to fill it, or paint with a pointer."></canvas>
+        </div>
+      </div>
+      <p id="status" class="sr-only" role="status"></p>
+      <aside class="focus-menu" id="focus-menu" aria-label="Painting tools" hidden>
+        <div class="rail-section" id="mode-controls">
+          <h2>How to paint</h2>
+          <div class="modes" id="modes" aria-label="Painting mode">
+            <button data-mode="fill" aria-pressed="true">Tap fill</button>
+            <button data-mode="guided" aria-pressed="false">Brush</button>
+            <button data-mode="free" aria-pressed="false">Freehand</button>
+          </div>
+          <p id="mode-help">Pick a color or tap any region to use its suggested shade.</p>
+        </div>
+        <div class="rail-section" id="preset-palettes">
+          <label class="section-label" for="theme">Palette</label>
+          <select id="theme" aria-label="Palette"></select>
+        </div>
+        <div class="rail-section" id="brush-controls">
+          <div id="brush-choice">
+            <label class="section-label" for="brush">Brush</label>
+            <select id="brush">
+              <option value="gouache">Matte gouache</option>
+              <option value="pencil">Colored pencil</option>
+              <option value="ink">Fine ink</option>
+            </select>
+          </div>
+          <details class="advanced-brush">
+            <summary>Use a Procreate brush tip</summary>
+            <p>Import a custom .brush with an embedded tip. It uses this studio’s brush settings.</p>
+            <input id="brush-file" type="file" aria-label="Import a Procreate brush tip" accept=".brush">
+            <p id="import-status" role="status"></p>
+          </details>
+        </div>
+        <div class="rail-section switches">
+          <label id="numbers-control"><input id="numbers" type="checkbox" checked> Show numbers</label>
+          <label id="outlines-control"><input id="outlines" type="checkbox" checked> Show ink outlines</label>
+          <label id="pencil-only-control"><input id="pencil-only" type="checkbox"> Apple Pencil only for strokes</label>
+        </div>
+        <div class="rail-section">
+          <h3>Canvas</h3>
+          <div class="canvas-actions">
+            <button class="icon-button" id="zoom-out" aria-label="Zoom out" title="Zoom out"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-minus"/></svg></button>
+            <button class="icon-button" id="zoom-reset" aria-label="Fit canvas" title="Fit canvas"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-fit"/></svg></button>
+            <button class="icon-button" id="zoom-in" aria-label="Zoom in" title="Zoom in"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-plus"/></svg></button>
+            <button class="icon-button" id="pan" aria-pressed="false" aria-label="Pan canvas" title="Pan canvas"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-pan"/></svg></button>
+            <button class="icon-button" id="download" aria-label="Save image" title="Save image"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-save"/></svg></button>
+            <button class="icon-button" id="reset" disabled aria-label="Reset painting" title="Reset painting"><svg class="toolbar-icon" aria-hidden="true"><use href="#icon-reset"/></svg></button>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
