@@ -36,6 +36,11 @@ try {
     if (Array.isArray(saved.removed)) removed = saved.removed.filter(key => key !== 'blank' && Object.hasOwn(paintings,key));
     if (Object.hasOwn(copies,saved.pageKey) || (Object.hasOwn(paintings,saved.pageKey) && !removed.includes(saved.pageKey))) pageKey = saved.pageKey;
     else if (removed.includes(pageKey)) pageKey = 'blank';
+    // Illustrations that were re-numbered keep their saved fills and brushwork.
+    for (const [key,work] of Object.entries(library)) {
+      const sheet = sheetFor(key);
+      if (sheet?.regionsVersion > 1 && work) library[key] = Painting.migrateRegions(work,sheet.legacy,sheet.regionsVersion);
+    }
   }
 } catch {}
 
@@ -54,7 +59,8 @@ let dirty = true;
 let frame = 0;
 const touches = new Map();
 const page = () => sheetFor(pageKey);
-const art = () => library[pageKey] || Painting.emptyPainting();
+// New work is stamped with the sheet's region numbering, so a reload never re-maps it.
+const art = () => library[pageKey] || { ...Painting.emptyPainting(), ...(page().regionsVersion > 1 && { regions:page().regionsVersion }) };
 const currentPalette = () => palettes[art().palette || page().palette];
 const colors = () => currentPalette().colors;
 const shadeName = slot => (currentPalette().names || names)[slot];

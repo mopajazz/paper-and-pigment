@@ -4,7 +4,9 @@ const Painting = (() => {
   }
 
   function resetPainting(painting) {
-    return { ...emptyPainting(), palette:painting.palette };
+    const reset = { ...emptyPainting(), palette:painting.palette };
+    if (painting.regions != null) reset.regions = painting.regions;
+    return reset;
   }
 
   function applyEdit(painting, edit) {
@@ -30,6 +32,27 @@ const Painting = (() => {
     return Math.max(.55,size*sample.width*(brush === 'ink' ? .15 : .5));
   }
 
-  return { emptyPainting, resetPainting, applyEdit, fillColor, brushSample, brushRadius };
+  // Carry saved work over to re-numbered regions. `legacy` comes from tools/number-regions.js:
+  // fills maps an old region id to the new ids inside it; strokes maps it to one new id.
+  // Work saved against some other numbering cannot be mapped, so its fills are cleared.
+  function migrateRegions(painting, legacy, version) {
+    const from = painting.regions ?? 1;
+    if (from === version) return painting;
+    const usable = legacy && legacy.from === from;
+    const fills = {};
+    if (usable) {
+      for (const [id, value] of Object.entries(painting.fills || {})) {
+        for (const next of legacy.fills[id] || []) fills[next] = value;
+      }
+    }
+    const strokes = (painting.strokes || []).map(stroke => {
+      if (stroke.region == null) return stroke;
+      const next = usable ? legacy.strokes[stroke.region] : undefined;
+      return { ...stroke, region: next ?? null };
+    });
+    return { ...painting, fills, strokes, regions: version };
+  }
+
+  return { emptyPainting, resetPainting, applyEdit, fillColor, brushSample, brushRadius, migrateRegions };
 })();
 if (typeof module !== 'undefined') module.exports = Painting;

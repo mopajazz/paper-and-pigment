@@ -127,15 +127,22 @@ const Artwork = (() => {
     const top = (height-drawnHeight)/2;
     const image = new Image();
     image.src = illustration.ink;
-    const regions = illustration.regions.map(([shape,x,y,slot,radius],id)=>({
-      id, slot, path:pathAt(shape,left,top,0,scale),
-      x:left+(x+.5)*scale, y:top+(y+.5)*scale,
-      labelSize:Math.max(4,Math.min(9,radius*scale*1.2)),
-      labelZoom:radius<8 ? 1.65 : 1,
-    }));
+    const regions = illustration.regions.map(([shape,x,y,slot,radius],id)=>{
+      // Inscribed radius in page units. A number appears once the zoom makes the shape
+      // about 5 units across its narrowest point (tools/number-regions.js keeps shapes
+      // big enough that this happens by the 4x zoom limit).
+      const room = radius*scale;
+      return {
+        id, slot, path:pathAt(shape,left,top,0,scale),
+        x:left+(x+.5)*scale, y:top+(y+.5)*scale,
+        labelSize:Math.max(1.5,Math.min(9,room*1.2)),
+        labelZoom:Math.min(4,Math.max(1,4.9/room)),
+      };
+    });
     paintings[illustration.key] = {
       name:illustration.name,collection:'DETAILED ILLUSTRATIONS',palette:illustration.palette,
       disjoint:true,regions,ornaments:[],raster:{ image,left,top,width:drawnWidth,height:drawnHeight },
+      regionsVersion:illustration.version ?? 1, legacy:illustration.legacy,
     };
   }
 

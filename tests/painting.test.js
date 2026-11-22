@@ -35,3 +35,26 @@ test('the brush outline uses the same radius as the rendered brush stamp', () =>
   assert.equal(model.brushRadius(20,sample,'gouache'),15);
   assert.equal(model.brushRadius(20,sample,'ink'),4.5);
 });
+
+test('re-numbered regions keep saved fills and clipped strokes', () => {
+  const legacy = { from: 1, fills: { 3: [10, 11], 4: [12] }, strokes: { 3: 11 } };
+  const saved = { palette: 'cut', fills: { 3: 2, 4: '#123456', 9: 5 }, strokes: [{ region: 3, points: [] }, { region: null, points: [] }] };
+  const moved = model.migrateRegions(saved, legacy, 2);
+  assert.deepEqual(moved.fills, { 10: 2, 11: 2, 12: '#123456' });
+  assert.equal(moved.strokes[0].region, 11);
+  assert.equal(moved.strokes[1].region, null);
+  assert.equal(moved.regions, 2);
+  assert.equal(moved.palette, 'cut');
+  assert.equal(model.migrateRegions(moved, legacy, 2), moved, 'already migrated work is left alone');
+});
+
+test('work saved against an unknown numbering is cleared, not misapplied', () => {
+  const moved = model.migrateRegions({ fills: { 3: 2 }, strokes: [{ region: 3 }], regions: 5 }, { from: 1, fills: { 3: [10] }, strokes: { 3: 10 } }, 7);
+  assert.deepEqual(moved.fills, {});
+  assert.equal(moved.strokes[0].region, null);
+});
+
+test('reset keeps the region numbering stamp so later fills are not re-mapped', () => {
+  assert.deepEqual(model.resetPainting({ palette: 'cut', fills: { 1: 2 }, strokes: [], regions: 2 }),
+    { palette: 'cut', fills: {}, strokes: [], regions: 2 });
+});

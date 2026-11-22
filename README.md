@@ -33,3 +33,21 @@ Each painting opens in a viewport-filling studio. Brush size, opacity, and color
 ```sh
 node --test tests/*.test.js
 ```
+
+## Re-number the detailed illustrations
+
+The four detailed illustrations get their numbered shapes from `tools/number-regions.js`, not by hand. The script reads each source PNG listed in `tools/line-art-sources.json` and finds every enclosed shape. Specks too small to tap fold into the shape around them. Each label goes at the widest point of its shape. Each shape gets a palette number that differs from its neighbors. The script then rewrites that artwork's regions in `line-art.js`.
+
+```sh
+npm install                                   # once; installs the PNG reader the script uses
+npm run regions                               # all four illustrations
+npm run regions -- --only woodland-tea        # just one
+npm run regions -- --reference woodland-tea=colored.png   # take numbers from a colored version
+npm run regions -- --dry-run                  # report only; line-art.js is left alone
+```
+
+Open `reference/index.html` afterward. It shows each filled answer key, a legend with shape counts per color, and a list of shapes worth checking. Very large shapes usually mean a gap in the line art merged two areas. Tuning flags: `--threshold` (ink darkness, default 150), `--gap` (line gaps to close, in pixels, default 1), and `--min-radius` (smallest kept shape, in source pixels).
+
+Saved work survives a re-run. Each run stores a map from the old shape ids to the new ones, and the studio moves saved fills and clipped brushwork across the first time it opens.
+
+The source PNGs live outside this repo, in `../generated_images` by default. Pass `--sources <folder>` to point elsewhere.

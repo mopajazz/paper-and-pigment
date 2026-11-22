@@ -1,0 +1,9 @@
+{
+  "sourcesDir": "../../generated_images",
+  "artworks": {
+    "woodland-watch": { "source": "exec-0f5b9c7a-3bfe-43a8-9f39-9534c0a1f5b6.png" },
+    "woodland-tea": { "source": "exec-044d3449-f039-4af1-bc72-639039865f04.png" },
+    "tree-of-ferns": { "source": "exec-cc446273-e5d7-471a-abfc-6bb2759904f7.png" },
+    "forest-medallion": { "source": "exec-551091d7-feeb-4e77-9bd3-f04e27192e38.png" }
+  }
+}

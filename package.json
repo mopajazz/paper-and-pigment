@@ -1,0 +1,12 @@
+{
+  "name": "paper-and-pigment",
+  "private": true,
+  "description": "A buildless iPad-first painting web app. Dev tools only; the app needs no install.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "regions": "node tools/number-regions.js"
+  },
+  "devDependencies": {
+    "pngjs": "7.0.0"
+  }
+}
