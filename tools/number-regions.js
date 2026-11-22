@@ -226,7 +226,11 @@ function main() {
     const previousVersion = entry.version ?? 1;
     const oldScale = img.width / entry.width;
     const step = R.legacyMap(entry.regions.map(r => r[0]), oldScale, result.partition, img.width, img.height, result.regions.length);
-    const legacy = { from: entry.legacy?.from ?? previousVersion, ...R.composeLegacy(entry.legacy, step) };
+    // One map per earlier numbering, so work saved against any past version still lands.
+    // (Older files stored a single `legacy` map from one version; read that too.)
+    const earlier = entry.migrations ?? (entry.legacy ? { [entry.legacy.from]: { fills: entry.legacy.fills, strokes: entry.legacy.strokes } } : {});
+    const migrations = { [previousVersion]: step };
+    for (const [v, map] of Object.entries(earlier)) migrations[v] = R.composeLegacy(map, step);
 
     writeAnswerKey(path.join(OUT, `${entry.key}.png`), result, img.width, img.height, palette.colors);
     sections.push(reportSection({ ...entry, width: img.width, height: img.height }, result, palette, check));
@@ -234,7 +238,8 @@ function main() {
 
     if (!args.dryRun) {
       entry.version = previousVersion + 1;
-      entry.legacy = legacy;
+      entry.migrations = migrations;
+      delete entry.legacy;
       entry.width = img.width;
       entry.height = img.height;
       entry.regions = result.regions.map(r => [r.path, r.x, r.y, r.slot, r.radius]);
@@ -243,8 +248,8 @@ function main() {
 
   writeReport(sections);
   if (!args.dryRun) {
-    const ordered = art.map(({ key, name, palette, version, legacy, width, height, ink, regions }) =>
-      Object.fromEntries(Object.entries({ key, name, palette, version, legacy, width, height, ink, regions }).filter(([, v]) => v !== undefined)));
+    const ordered = art.map(({ key, name, palette, version, migrations, width, height, ink, regions }) =>
+      Object.fromEntries(Object.entries({ key, name, palette, version, migrations, width, height, ink, regions }).filter(([, v]) => v !== undefined)));
     fs.writeFileSync(LINE_ART, serialize(header, ordered));
     console.log(`wrote ${path.relative(root, LINE_ART)}`);
   }

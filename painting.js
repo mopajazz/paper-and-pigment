@@ -32,13 +32,15 @@ const Painting = (() => {
     return Math.max(.55,size*sample.width*(brush === 'ink' ? .15 : .5));
   }
 
-  // Carry saved work over to re-numbered regions. `legacy` comes from tools/number-regions.js:
+  // Carry saved work over to re-numbered regions. `migrations` comes from
+  // tools/number-regions.js and holds one map per earlier numbering, keyed by its version:
   // fills maps an old region id to the new ids inside it; strokes maps it to one new id.
-  // Work saved against some other numbering cannot be mapped, so its fills are cleared.
-  function migrateRegions(painting, legacy, version) {
+  // Work saved against a numbering with no map cannot be placed, so its fills are cleared.
+  function migrateRegions(painting, migrations, version) {
     const from = painting.regions ?? 1;
     if (from === version) return painting;
-    const usable = legacy && legacy.from === from;
+    const legacy = migrations?.[from];
+    const usable = Boolean(legacy);
     const fills = {};
     if (usable) {
       for (const [id, value] of Object.entries(painting.fills || {})) {

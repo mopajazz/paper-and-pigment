@@ -37,7 +37,7 @@ test('the brush outline uses the same radius as the rendered brush stamp', () =>
 });
 
 test('re-numbered regions keep saved fills and clipped strokes', () => {
-  const legacy = { from: 1, fills: { 3: [10, 11], 4: [12] }, strokes: { 3: 11 } };
+  const legacy = { 1: { fills: { 3: [10, 11], 4: [12] }, strokes: { 3: 11 } } };
   const saved = { palette: 'cut', fills: { 3: 2, 4: '#123456', 9: 5 }, strokes: [{ region: 3, points: [] }, { region: null, points: [] }] };
   const moved = model.migrateRegions(saved, legacy, 2);
   assert.deepEqual(moved.fills, { 10: 2, 11: 2, 12: '#123456' });
@@ -49,7 +49,7 @@ test('re-numbered regions keep saved fills and clipped strokes', () => {
 });
 
 test('work saved against an unknown numbering is cleared, not misapplied', () => {
-  const moved = model.migrateRegions({ fills: { 3: 2 }, strokes: [{ region: 3 }], regions: 5 }, { from: 1, fills: { 3: [10] }, strokes: { 3: 10 } }, 7);
+  const moved = model.migrateRegions({ fills: { 3: 2 }, strokes: [{ region: 3 }], regions: 5 }, { 1: { fills: { 3: [10] }, strokes: { 3: 10 } } }, 7);
   assert.deepEqual(moved.fills, {});
   assert.equal(moved.strokes[0].region, null);
 });
@@ -57,4 +57,12 @@ test('work saved against an unknown numbering is cleared, not misapplied', () =>
 test('reset keeps the region numbering stamp so later fills are not re-mapped', () => {
   assert.deepEqual(model.resetPainting({ palette: 'cut', fills: { 1: 2 }, strokes: [], regions: 2 }),
     { palette: 'cut', fills: {}, strokes: [], regions: 2 });
+});
+
+test('work saved against any earlier numbering moves to the current one', () => {
+  const migrations = { 1: { fills: { 0: [7] }, strokes: {} }, 2: { fills: { 4: [8, 9] }, strokes: { 4: 9 } } };
+  assert.deepEqual(model.migrateRegions({ fills: { 0: 1 }, strokes: [] }, migrations, 3).fills, { 7: 1 });
+  const fromTwo = model.migrateRegions({ fills: { 4: 2 }, strokes: [{ region: 4 }], regions: 2 }, migrations, 3);
+  assert.deepEqual(fromTwo.fills, { 8: 2, 9: 2 });
+  assert.equal(fromTwo.strokes[0].region, 9);
 });

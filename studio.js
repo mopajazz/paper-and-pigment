@@ -45,7 +45,7 @@ try {
     // Illustrations that were re-numbered keep their saved fills and brushwork.
     for (const [key,work] of Object.entries(library)) {
       const sheet = sheetFor(key);
-      if (sheet?.regionsVersion > 1 && work) library[key] = Painting.migrateRegions(work,sheet.legacy,sheet.regionsVersion);
+      if (sheet?.regionsVersion > 1 && work) library[key] = Painting.migrateRegions(work,sheet.migrations,sheet.regionsVersion);
     }
   }
 } catch {}

@@ -134,3 +134,14 @@ test('strips between hatching strokes join the shape they open onto', () => {
   for (const x of [23, 25, 27, 29]) assert.equal(partition[5 * W + x], right, `strip at x=${x}`);
   assert.equal(regions.length, 2);
 });
+
+test('a thin strip too narrow to keep joins one neighbor whole, never split between several', () => {
+  // A on the left, a 3px strip between walls at x=20 and x=24, and B (top) / C (bottom)
+  // on the right. The strip is discarded as a shape, then must go to a single neighbor.
+  const W = 60, H = 30;
+  const rgba = page(W, H, set => { vline(set, 20, 0, H - 1); vline(set, 24, 0, H - 1); hline(set, 15, 25, W - 1); });
+  const { partition } = R.numberRegions(rgba, W, H, { gap: 0, minRadius: 2.5, minArea: 4 });
+  const owners = new Set();
+  for (let y = 0; y < H; y++) for (let x = 21; x <= 23; x++) owners.add(partition[y * W + x]);
+  assert.equal(owners.size, 1, `strip split between ${[...owners].join(', ')}`);
+});

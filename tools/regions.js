@@ -453,6 +453,29 @@ function numberRegions(rgba, width, height, options = {}) {
   const n = Math.max(1, kept.length);
   const paper = new Uint8Array(ink.length);
   for (let p = 0; p < ink.length; p++) paper[p] = ink[p] ? 0 : 1;
+  // A first growth says which kept shape reaches each discarded piece of paper. Each piece
+  // then joins, whole, the shape that claimed most of it. Splitting pieces pixel by pixel
+  // carves thin strips (between fruit slices, along stems) with straight cuts across open
+  // paper, and a tap then fills only part of what looks like one area.
+  const provisional = growRegions(seeds, labels.length, width, paper);
+  const votes = new Map();
+  for (let p = 0; p < labels.length; p++) {
+    const c = labels[p];
+    if (c < 0 || newId[c] >= 0) continue;
+    let tally = votes.get(c);
+    if (!tally) votes.set(c, tally = new Map());
+    tally.set(provisional[p], (tally.get(provisional[p]) || 0) + 1);
+  }
+  const owner = new Int32Array(count).fill(-1);
+  for (const [c, tally] of votes) {
+    let best = -1, most = -1;
+    for (const [r, n] of tally) if (n > most || (n === most && r < best)) { most = n; best = r; }
+    owner[c] = best;
+  }
+  for (let p = 0; p < labels.length; p++) {
+    const c = labels[p];
+    if (c >= 0 && newId[c] < 0) seeds[p] = owner[c];
+  }
   const partition = growRegions(seeds, labels.length, width, paper);
   const neighbors = adjacency(partition, width, height, n);
   const finalAreas = new Float64Array(n);

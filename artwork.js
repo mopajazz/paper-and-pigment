@@ -142,7 +142,7 @@ const Artwork = (() => {
     paintings[illustration.key] = {
       name:illustration.name,collection:'DETAILED ILLUSTRATIONS',palette:illustration.palette,
       disjoint:true,regions,ornaments:[],raster:{ image,left,top,width:drawnWidth,height:drawnHeight },
-      regionsVersion:illustration.version ?? 1, legacy:illustration.legacy,
+      regionsVersion:illustration.version ?? 1, migrations:illustration.migrations,
     };
   }
 
