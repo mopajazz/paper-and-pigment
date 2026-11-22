@@ -51,7 +51,7 @@ h1{font:clamp(2.75rem,5vw,4.75rem)/1.09 Georgia,serif;letter-spacing:-.05em;marg
 #delete-dialog h2{font:1.4rem Georgia,serif;margin:0}
 #delete-dialog p{font-size:.91rem;color:var(--muted)}
 #delete-dialog form{display:flex;justify-content:flex-end;gap:12px}
-@media(max-width:620px){.gallery-index{gap:6px}#filters{min-width:0}#selection-actions{gap:0}#selection-count{font-size:.78rem}.gallery-action{padding-inline:5px;font-size:.8rem}}
+@media(max-width:620px){#gallery.selecting #filters{display:none}#selection-count{white-space:nowrap}.gallery-index{gap:6px}#filters{min-width:0}#selection-actions{gap:0}#selection-count{font-size:.78rem}.gallery-action{padding-inline:5px;font-size:.8rem}}
 @media(max-width:360px){#selection-actions .toolbar-icon{display:none}}
 #paintings{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,218px),1fr));gap:clamp(22px,3.5vh,40px) clamp(16px,2.2vw,36px)}
 .painting-button{min-width:0;padding:0;display:flex;flex-direction:column;align-items:stretch;text-align:left;border:0;background:none}
@@ -77,7 +77,7 @@ h1{font:clamp(2.75rem,5vw,4.75rem)/1.09 Georgia,serif;letter-spacing:-.05em;marg
 .icon-button[aria-expanded=true],.icon-button[aria-pressed=true]{background:#c5d3c4}
 .stage{flex:1;min-height:0;display:flex;align-items:stretch;gap:8px}
 .easel{flex:1;min-width:0;min-height:0;display:grid;place-items:center;container-type:size}
-#page{display:block;width:min(100cqw,133.333cqh);height:auto;aspect-ratio:4/3;background:#fffaf0;box-shadow:0 2px 12px #30423826;touch-action:none;cursor:crosshair}
+#page{--ratio:1.3333;display:block;width:min(100cqw,calc(100cqh*var(--ratio)));height:auto;aspect-ratio:var(--ratio);background:#fffaf0;box-shadow:0 2px 12px #30423826;touch-action:none;cursor:crosshair}
 #page.panning{cursor:grab}
 .focus-rail{align-self:center;flex:none;width:96px;max-height:100%;overflow:auto;overscroll-behavior:contain;background:#f6f7ee;border:1px solid #c3cebf;border-radius:13px;scrollbar-width:thin}
 .brush-sliders{display:grid;grid-template-columns:1fr 1fr;padding:8px 2px;border-bottom:1px solid var(--line)}

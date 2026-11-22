@@ -6,6 +6,12 @@ const cache = document.createElement('canvas');
 cache.width = canvas.width;
 cache.height = canvas.height;
 const backing = cache.getContext('2d');
+// The part of the page the canvas shows: the artwork's own rectangle for an
+// illustration, so a portrait piece gets a portrait canvas instead of floating in a
+// landscape page. Coordinates stay in page units; `s` is canvas pixels per page unit,
+// chosen to keep the original 1440x1080 pixel budget.
+const pixelBudget = canvas.width*canvas.height;
+let crop = { x:0, y:0, w:width, h:height, s:2 };
 const storageKey = 'paper-and-pigment.v1';
 let library = {};
 let tips = {};
@@ -91,7 +97,10 @@ function commit(edit, appendStroke = null) {
   library[pageKey] = Painting.applyEdit(art(), edit);
   if (appendStroke && !dirty) {
     renderWet(appendStroke);
-    backing.drawImage(wetLayer,0,0,width,height);
+    backing.save();
+    backing.setTransform(1,0,0,1,0,0);
+    backing.drawImage(wetLayer,0,0);
+    backing.restore();
     update(false);
   } else update();
   save();
@@ -255,7 +264,7 @@ function outlines(ctx, sheet, subtle = false) {
       layer.width = canvas.width;
       layer.height = canvas.height;
       const ink = layer.getContext('2d');
-      ink.scale(layer.width/width,layer.height/height);
+      ink.setTransform(crop.s,0,0,crop.s,-crop.x*crop.s,-crop.y*crop.s);
       ink.strokeStyle = sheet.ink;
       ink.lineWidth = 1.9;
       ink.lineJoin = 'round';
@@ -267,7 +276,7 @@ function outlines(ctx, sheet, subtle = false) {
       }
       glassInks.set(sheet,layer);
     }
-    ctx.drawImage(glassInks.get(sheet),0,0,width,height);
+    ctx.drawImage(glassInks.get(sheet),crop.x,crop.y,crop.w,crop.h);
     return;
   }
   if (sheet.raster) {
@@ -329,10 +338,10 @@ function drawBrushCursor(ctx) {
   if (!stroke && !preview && (!hover || ($('pencil-only').checked && hover.pointerType !== 'pen'))) return;
   const brush = stroke?.brush ?? $('brush').value;
   const size = stroke?.size ?? Number($('size').value);
-  const position = stroke?.points.at(-1) ?? artPoint(preview ? { x:width/2,y:height/2 } : canvasPoint(hover));
+  const position = stroke?.points.at(-1) ?? artPoint(preview ? { x:crop.w/2,y:crop.h/2 } : canvasPoint(hover));
   const sample = stroke ? position : Painting.brushSample(preview ? {} : hover,brush);
   const radius = Painting.brushRadius(size,sample,brush);
-  const scale = canvas.clientWidth * view.zoom / width;
+  const scale = canvas.clientWidth * view.zoom / crop.w;
   if (!scale) return;
   ctx.save();
   ctx.beginPath();
@@ -356,8 +365,9 @@ let wetCount = 0;
 let wetSeed = 1357;
 function renderWet(stroke) {
   if (wetStroke !== stroke) {
-    wet.setTransform(2,0,0,2,0,0);
-    wet.clearRect(0,0,width,height);
+    wet.setTransform(1,0,0,1,0,0);
+    wet.clearRect(0,0,wetLayer.width,wetLayer.height);
+    wet.setTransform(crop.s,0,0,crop.s,-crop.x*crop.s,-crop.y*crop.s);
     wetStroke = stroke;
     wetCount = 0;
     wetSeed = 1357;
@@ -370,7 +380,7 @@ function renderWet(stroke) {
 function render() {
   frame = 0;
   if (dirty) {
-    backing.setTransform(2,0,0,2,0,0);
+    backing.setTransform(crop.s,0,0,crop.s,-crop.x*crop.s,-crop.y*crop.s);
     paper(backing,page(),art());
     for (const stroke of art().strokes) drawStroke(backing,stroke,page());
     dirty = false;
@@ -378,15 +388,16 @@ function render() {
   context.setTransform(1,0,0,1,0,0);
   context.fillStyle = '#e1e7da';
   context.fillRect(0,0,canvas.width,canvas.height);
-  context.setTransform(2*view.zoom,0,0,2*view.zoom,2*view.x,2*view.y);
+  const k = crop.s*view.zoom;
+  context.setTransform(k,0,0,k,crop.s*view.x-k*crop.x,crop.s*view.y-k*crop.y);
   context.save();
   context.beginPath();
-  context.rect(0,0,width,height);
+  context.rect(crop.x,crop.y,crop.w,crop.h);
   context.clip();
-  context.drawImage(cache,0,0,width,height);
+  context.drawImage(cache,crop.x,crop.y,crop.w,crop.h);
   if (active?.stroke) {
     renderWet(active.stroke);
-    context.drawImage(wetLayer,0,0,width,height);
+    context.drawImage(wetLayer,crop.x,crop.y,crop.w,crop.h);
   }
   if ($('outlines').checked) outlines(context,page(),pageKey === 'cut' && mode === 'free');
   highlights(context,page());
@@ -399,10 +410,14 @@ function schedule() {
 
 function canvasPoint(event) {
   const bounds = canvas.getBoundingClientRect();
-  return { x:(event.clientX-bounds.left)*width/bounds.width, y:(event.clientY-bounds.top)*height/bounds.height };
+  return { x:(event.clientX-bounds.left)*crop.w/bounds.width, y:(event.clientY-bounds.top)*crop.h/bounds.height };
 }
 function artPoint(p) {
-  return { x:(p.x-view.x)/view.zoom, y:(p.y-view.y)/view.zoom };
+  return { x:(p.x-view.x)/view.zoom+crop.x, y:(p.y-view.y)/view.zoom+crop.y };
+}
+// Keep page point `anchor` under display point `at` at the given zoom.
+function viewAt(zoom, at, anchor) {
+  setView(zoom,at.x-(anchor.x-crop.x)*zoom,at.y-(anchor.y-crop.y)*zoom);
 }
 function regionAt(p) {
   backing.save();
@@ -426,16 +441,15 @@ function fill(r) {
   commit({ fills: { ...art().fills,[r.id]:slot } });
 }
 function setView(zoom,x,y) {
-  view = { zoom, x:Math.max(width*(1-zoom),Math.min(0,x)), y:Math.max(height*(1-zoom),Math.min(0,y)) };
+  view = { zoom, x:Math.max(crop.w*(1-zoom),Math.min(0,x)), y:Math.max(crop.h*(1-zoom),Math.min(0,y)) };
   $('zoom-reset').title = `Fit canvas · ${Math.round(zoom*100)}% zoom`;
   $('zoom-out').disabled = zoom === 1;
   $('zoom-in').disabled = zoom === 4;
   schedule();
 }
-function zoomAt(next, center = {x:width/2,y:height/2}) {
+function zoomAt(next, center = {x:crop.w/2,y:crop.h/2}) {
   const zoom = Math.max(1,Math.min(4,next));
-  const anchor = artPoint(center);
-  setView(zoom,center.x-anchor.x*zoom,center.y-anchor.y*zoom);
+  viewAt(zoom,center,artPoint(center));
 }
 function touchPair() {
   const [a,b] = touches.values();
@@ -498,7 +512,7 @@ canvas.addEventListener('pointermove', (event) => {
   if (gesture && touches.size >= 2) {
     const pair = touchPair();
     const zoom = Math.max(1,Math.min(4,gesture.zoom*pair.distance/Math.max(1,gesture.distance)));
-    setView(zoom,pair.center.x-gesture.anchor.x*zoom,pair.center.y-gesture.anchor.y*zoom);
+    viewAt(zoom,pair.center,gesture.anchor);
     return;
   }
   if (!active || active.id !== event.pointerId) return;
@@ -537,7 +551,7 @@ canvas.addEventListener('pointercancel', (event) => endPointer(event,true));
 canvas.addEventListener('lostpointercapture', (event) => endPointer(event,true));
 
 function pointTo(r) {
-  setView(view.zoom,width/2-r.x*view.zoom,height/2-r.y*view.zoom);
+  viewAt(view.zoom,{x:crop.w/2,y:crop.h/2},r);
 }
 canvas.addEventListener('keydown', (event) => {
   if (page().blank) return;
@@ -629,7 +643,7 @@ $('download').onclick = () => {
   output.height = canvas.height;
   const out = output.getContext('2d');
   out.drawImage(cache,0,0);
-  out.scale(2,2);
+  out.setTransform(crop.s,0,0,crop.s,-crop.x*crop.s,-crop.y*crop.s);
   if ($('outlines').checked) outlines(out,page(),pageKey === 'cut' && mode === 'free');
   output.toBlob((blob) => {
     if (!blob) {
@@ -638,7 +652,7 @@ $('download').onclick = () => {
     }
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = page().name.toLowerCase().replaceAll(' ','-')+'.png';
+    link.download = paintingName(pageKey).toLowerCase().replaceAll(' ','-')+'.png';
     link.click();
     setTimeout(()=>URL.revokeObjectURL(link.href),30_000);
   },'image/png');
@@ -651,6 +665,17 @@ document.addEventListener('keydown', (event) => {
   else traverse(history,future);
 });
 
+function fitCanvas() {
+  const r = page().raster;
+  const next = r ? { x:r.left, y:r.top, w:r.width, h:r.height } : { x:0, y:0, w:width, h:height };
+  next.s = Math.sqrt(pixelBudget/(next.w*next.h));
+  const w = Math.round(next.w*next.s), h = Math.round(next.h*next.s);
+  crop = next;
+  for (const c of [canvas,cache,wetLayer]) if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  canvas.style.setProperty('--ratio',String(next.w/next.h));
+  wetStroke = null;
+  dirty = true;
+}
 function openPage(key) {
   if (active || key === pageKey) return;
   pageKey = key;
@@ -660,12 +685,13 @@ function openPage(key) {
   future = [];
   selected = null;
   focusRegion = null;
+  fitCanvas();
   setView(1,0,0);
   updatePage();
   save();
 }
 function updatePage() {
-  $('title').textContent = page().name;
+  $('title').textContent = paintingName(pageKey);
   canvas.setAttribute('aria-label',page().blank ? 'Blank canvas. Paint with a pointer or Apple Pencil.'
     : 'Painting canvas. Use arrow keys to select a region, Enter to fill it, or paint with a pointer.');
   announce(modeHelp[mode]);
@@ -673,6 +699,123 @@ function updatePage() {
 }
 const tiles = new Map();
 let galleryFilter = 'all';
+// Gallery selection (Select / Done), Procreate-style: tap tiles to pick them, then
+// duplicate or delete. Deleting can be undone from the gallery message.
+let selecting = false;
+const chosen = new Set();
+let undoDelete = null;
+function syncSelection() {
+  const select = $('select-art');
+  select.setAttribute('aria-pressed',String(selecting));
+  select.querySelector('span').textContent = selecting ? 'Done' : 'Select';
+  $('selection-actions').hidden = !selecting;
+  $('gallery').classList.toggle('selecting',selecting);
+  $('gallery-count').hidden = selecting;
+  $('blank-canvas').disabled = selecting;
+  $('selection-count').textContent = chosen.size ? `${chosen.size} selected` : 'Tap paintings to select';
+  $('duplicate').disabled = $('delete').disabled = !chosen.size;
+  for (const [key,{button}] of tiles) {
+    if (selecting) button.setAttribute('aria-pressed',String(chosen.has(key)));
+    else button.removeAttribute('aria-pressed');
+  }
+}
+function setSelecting(on) {
+  selecting = on;
+  chosen.clear();
+  if (on) galleryMessage('');
+  syncSelection();
+}
+function toggleChosen(key) {
+  if (chosen.has(key)) chosen.delete(key); else chosen.add(key);
+  syncSelection();
+}
+function galleryMessage(text, undo = null) {
+  const message = $('gallery-message');
+  message.replaceChildren(text);
+  if (undo) {
+    const button = document.createElement('button');
+    button.className = 'gallery-action';
+    button.textContent = 'Undo';
+    button.onclick = undo;
+    message.append(' ',button);
+  }
+}
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+function newCopyId() {
+  let id;
+  do id = 'copy-' + Array.from(crypto.getRandomValues(new Uint8Array(4)),b => b.toString(16).padStart(2,'0')).join('');
+  while (Object.hasOwn(copies,id));
+  return id;
+}
+function placeCopy(id) {
+  const { source, number } = copies[id];
+  const before = [...tiles.keys()].filter(k => k === source || (copies[k]?.source === source && copies[k].number < number));
+  addPaintingButton(id,tiles.get(before.at(-1)).button);
+}
+function duplicateChosen() {
+  // Keep gallery order, so copies of several paintings land in a predictable place.
+  const keys = [...tiles.keys()].filter(key => chosen.has(key));
+  for (const key of keys) {
+    const source = sourceKey(key);
+    const number = 1 + Math.max(0,...Object.values(copies).filter(c => c.source === source).map(c => c.number));
+    const id = newCopyId();
+    copies[id] = { source, number };
+    if (library[key]) library[id] = structuredClone(library[key]);
+    placeCopy(id);
+  }
+  setSelecting(false);
+  filterGallery();
+  save();
+  galleryMessage(`Duplicated ${plural(keys.length,'painting')}.`);
+}
+function deleteChosen() {
+  const keys = [...chosen];
+  const before = { library:structuredClone(library), copies:{...copies}, removed:[...removed] };
+  for (const key of keys) {
+    delete library[key];
+    if (copies[key]) {
+      delete copies[key];
+      tiles.get(key).button.remove();
+      tiles.delete(key);
+    } else if (key !== 'blank' && !removed.includes(key)) removed.push(key);
+  }
+  // The studio must not keep showing a deleted painting.
+  if (keys.includes(pageKey)) {
+    openPage('blank');
+    history = [];
+    future = [];
+    dirty = true;
+  }
+  setSelecting(false);
+  filterGallery();
+  save();
+  undoDelete = () => {
+    library = before.library;
+    copies = before.copies;
+    removed = before.removed;
+    for (const key of keys) if (copies[key] && !tiles.has(key)) placeCopy(key);
+    for (const key of keys) if (tiles.has(key)) refreshTile(key);
+    undoDelete = null;
+    filterGallery();
+    save();
+    galleryMessage(`Restored ${plural(keys.length,'painting')}.`);
+  };
+  galleryMessage(`Deleted ${plural(keys.length,'painting')}.`,undoDelete);
+}
+$('select-art').onclick = () => setSelecting(!selecting);
+$('duplicate').onclick = duplicateChosen;
+$('delete').onclick = () => {
+  const n = chosen.size;
+  $('delete-question').textContent = `Delete ${plural(n,'painting')}?`;
+  $('delete-dialog').showModal();
+};
+$('delete-dialog').addEventListener('close', () => {
+  if ($('delete-dialog').returnValue === 'delete') deleteChosen();
+  $('delete-dialog').returnValue = '';
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && selecting && !$('gallery').hidden && !$('delete-dialog').open) setSelecting(false);
+});
 let returnTarget = null;
 function hasMarks(key) {
   const painting = library[key];
@@ -680,7 +823,7 @@ function hasMarks(key) {
 }
 function refreshTile(key) {
   const {preview,detail} = tiles.get(key);
-  const sheet = paintings[key];
+  const sheet = sheetFor(key);
   const painting = library[key] || Painting.emptyPainting();
   const started = hasMarks(key);
   const thumb = preview.getContext('2d');
@@ -708,9 +851,9 @@ function refreshTile(key) {
 function filterGallery() {
   let count = 0;
   for (const [key,{button}] of tiles) {
-    const sheet = paintings[key];
+    const sheet = sheetFor(key);
     const started = hasMarks(key);
-    button.hidden = (sheet.blank && !started) ||
+    button.hidden = removed.includes(key) || (sheet.blank && !started) ||
       (galleryFilter === 'started' && !started) ||
       (galleryFilter === 'glass' && !sheet.glass) ||
       (galleryFilter === 'illustration' && !sheet.raster);
@@ -719,6 +862,8 @@ function filterGallery() {
   $('gallery-count').textContent = count + (count === 1 ? ' painting' : ' paintings');
   $('empty-gallery').hidden = count > 0;
   for (const filter of $('filters').children) filter.setAttribute('aria-pressed',String(filter.dataset.filter===galleryFilter));
+  for (const key of chosen) if (tiles.get(key)?.button.hidden) chosen.delete(key);
+  syncSelection();
 }
 $('filters').onclick = (event) => {
   const filter = event.target.closest('[data-filter]');
@@ -737,8 +882,8 @@ function enterStudio(key, trigger, push = true) {
   canvas.focus({preventScroll:true});
   schedule();
 }
-function addPaintingButton(key) {
-  const sheet = paintings[key];
+function addPaintingButton(key, after = null) {
+  const sheet = sheetFor(key);
   const button = document.createElement('button');
   button.className = 'painting-button';
   button.dataset.page = key;
@@ -748,13 +893,13 @@ function addPaintingButton(key) {
   preview.setAttribute('aria-hidden','true');
   const name = document.createElement('span');
   name.className = 'tile-name';
-  name.textContent = sheet.name;
+  name.textContent = paintingName(key);
   const detail = document.createElement('span');
   detail.className = 'tile-detail';
   button.append(preview,name,detail);
-  button.onclick = () => enterStudio(key,button);
+  button.onclick = () => selecting ? toggleChosen(key) : enterStudio(key,button);
   tiles.set(key,{button,preview,detail});
-  $('paintings').append(button);
+  if (after) after.after(button); else $('paintings').append(button);
   refreshTile(key);
   sheet.raster?.image.addEventListener('load', () => {
     refreshTile(key);
@@ -762,9 +907,15 @@ function addPaintingButton(key) {
   },{once:true});
 }
 const galleryOrder = ['woodland-watch','lantern-bay','woodland-tea','orchard','tree-of-ferns','high-pass','forest-medallion','lily-pond'];
-for (const key of new Set([...galleryOrder,...Object.keys(paintings)])) addPaintingButton(key);
+for (const key of new Set([...galleryOrder,...Object.keys(paintings)])) {
+  addPaintingButton(key);
+  // Saved copies sit right after their original, oldest first.
+  const own = Object.keys(copies).filter(id => copies[id].source === key).sort((a,b) => copies[a].number-copies[b].number);
+  for (const id of own) addPaintingButton(id);
+}
 $('blank-canvas').onclick = () => enterStudio('blank',$('blank-canvas'));
 filterGallery();
+fitCanvas();
 setView(1,0,0);
 updatePage();
 
@@ -827,7 +978,7 @@ function followLocation() {
   touches.clear();
   gesture = null;
   const key = location.hash.slice('#painting/'.length);
-  if (location.hash.startsWith('#painting/') && Object.hasOwn(paintings,key)) {
+  if (location.hash.startsWith('#painting/') && tiles.has(key) && !removed.includes(key)) {
     enterStudio(key,tiles.get(key).button,false);
   } else if (!$('studio').hidden) showGallery();
 }
